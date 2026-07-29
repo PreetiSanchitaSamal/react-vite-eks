@@ -2,147 +2,100 @@ pipeline {
 
     agent any
 
-
     environment {
-
         AWS_REGION = "ap-south-2"
-
         AWS_ACCOUNT_ID = "995739391172"
-
         ECR_REPOSITORY = "react-vite-app"
-
         IMAGE_TAG = "${BUILD_NUMBER}"
-
         ECR_URI = "${AWS_ACCOUNT_ID}.dkr.ecr.${AWS_REGION}.amazonaws.com/${ECR_REPOSITORY}"
-
     }
-
 
     stages {
 
-
         stage('Checkout Source Code') {
-
             steps {
-
                 git branch: 'main',
                     url: 'https://github.com/PreetiSanchitaSamal/react-vite-eks.git'
-
             }
-
         }
-
-
 
         stage('Install Dependencies') {
-
             steps {
-
                 sh 'npm install'
-
             }
-
         }
-
-
 
         stage('Build React Application') {
-
             steps {
-
                 sh 'npm run build'
-
             }
-
         }
-
-
 
         stage('Build Docker Image') {
-
             steps {
-
                 sh """
-
                 docker build -t ${ECR_URI}:${IMAGE_TAG} .
-
                 """
-
             }
-
         }
-
-
 
         stage('Push Docker Image') {
-
             steps {
-
                 sh """
-
-                aws ecr get-login-password --region ${AWS_REGION} | \
-                docker login --username AWS \
-                --password-stdin ${AWS_ACCOUNT_ID}.dkr.ecr.${AWS_REGION}.amazonaws.com
-
+                aws ecr get-login-password --region ${AWS_REGION} | docker login --username AWS --password-stdin ${AWS_ACCOUNT_ID}.dkr.ecr.${AWS_REGION}.amazonaws.com
 
                 docker push ${ECR_URI}:${IMAGE_TAG}
-
                 """
-
             }
-
         }
 
-
+        stage('Check Kubernetes Config') {
+            steps {
+                sh """
+                whoami
+                echo \$HOME
+                pwd
+                which kubectl
+                kubectl config current-context
+                kubectl get nodes
+                """
+            }
+        }
 
         stage('Update Kubernetes Deployment') {
-    steps {
-        sh """
-        aws eks update-kubeconfig --region ${AWS_REGION} --name my-eks
+            steps {
+                sh """
+                aws eks update-kubeconfig --region ${AWS_REGION} --name my-eks
 
-        kubectl config current-context
-        kubectl get nodes
-
-        kubectl set image deployment/react-vite-app \
-        react-vite-container=${ECR_URI}:${IMAGE_TAG}
-        """
-    }
-}
-
-
+                kubectl set image deployment/react-vite-app \
+                react-vite-container=${ECR_URI}:${IMAGE_TAG}
+                """
+            }
+        }
 
         stage('Verify Deployment Status') {
-    steps {
-        sh """
-        aws eks update-kubeconfig --region ${AWS_REGION} --name my-eks
+            steps {
+                sh """
+                aws eks update-kubeconfig --region ${AWS_REGION} --name my-eks
 
-        kubectl rollout status deployment/react-vite-app
+                kubectl rollout status deployment/react-vite-app
 
-        kubectl get deployments
+                kubectl get deployments
+                kubectl get pods
+                kubectl get service
+                """
+            }
+        }
 
-        kubectl get pods
-
-        kubectl get service
-        """
     }
-}
-
 
     post {
-
         success {
-
             echo 'CI/CD Pipeline completed successfully!'
-
         }
-
 
         failure {
-
             echo 'Pipeline failed. Check the console output.'
-
         }
-
     }
-
 }
