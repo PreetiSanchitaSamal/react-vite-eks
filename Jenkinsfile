@@ -96,46 +96,36 @@ pipeline {
 
 
         stage('Update Kubernetes Deployment') {
+    steps {
+        sh """
+        aws eks update-kubeconfig --region ${AWS_REGION} --name my-eks
 
-            steps {
+        kubectl config current-context
+        kubectl get nodes
 
-                sh """
-
-                kubectl set image deployment/react-vite-app \
-                react-vite-container=${ECR_URI}:${IMAGE_TAG}
-
-                """
-
-            }
-
-        }
+        kubectl set image deployment/react-vite-app \
+        react-vite-container=${ECR_URI}:${IMAGE_TAG}
+        """
+    }
+}
 
 
 
         stage('Verify Deployment Status') {
+    steps {
+        sh """
+        aws eks update-kubeconfig --region ${AWS_REGION} --name my-eks
 
-            steps {
+        kubectl rollout status deployment/react-vite-app
 
-                sh """
+        kubectl get deployments
 
-                kubectl rollout status deployment/react-vite-app
+        kubectl get pods
 
-
-                kubectl get deployments
-
-
-                kubectl get pods
-
-
-                kubectl get service
-
-                """
-
-            }
-
-        }
-
+        kubectl get service
+        """
     }
+}
 
 
     post {
